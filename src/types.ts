@@ -5,3 +5,9 @@ export interface Todo {
   user_id: string;
   created_at: string;
 }
+
+declare module "express-serve-static-core" {
+  interface Request {
+    userId?: string;
+  }
+}
