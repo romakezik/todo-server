@@ -10,7 +10,7 @@ app.use(express.json());
 app.get(
   "/api/todos",
   asyncHandler(async (_req, res) => {
-    const { rows } = await pool.query(
+    const { rows } = await pool.query<Todo>(
       "SELECT * FROM todos ORDER BY created_at DESC"
     );
     res.json(rows);
