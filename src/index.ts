@@ -6,9 +6,15 @@ import type { Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { auth } from "./authMiddleware";
+import cors from "cors";
 
 const app = express();
+app.use(cors());
 app.use(express.json());
+
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
 
 app.post(
   "/api/auth/register",
