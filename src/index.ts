@@ -173,4 +173,5 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ message: "Ошибка сервера" });
 });
 
-app.listen(3000, () => console.log("Server on http://localhost:3000"));
+const PORT = process.env.PORT ?? 3000;
+app.listen(PORT, () => console.log(`Server on ${PORT}`));

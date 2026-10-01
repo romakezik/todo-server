@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node --import tsx src/index.ts",
     "dev": "node --env-file=.env --import tsx --watch src/index.ts",
     "typecheck": "tsc --noEmit"
   },
