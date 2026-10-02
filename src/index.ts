@@ -148,29 +148,45 @@ app.post(
   }),
 );
 
-app.patch(
-  "/api/todos/:id",
-  asyncHandler(async (req, res) => {
-    const { text } = req.body;
+app.patch("/api/todos/:id", asyncHandler(async (req, res) => {
+  const { text, completed } = req.body;
 
+  if (text !== undefined) {
     if (typeof text !== "string" || !text.trim()) {
-      res.status(400).json({ message: "text обязателен" });
+      res.status(400).json({ message: "text не может быть пустым" });
       return;
     }
-
     const { rows } = await pool.query<Todo>(
       "UPDATE todos SET text = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
       [text.trim(), req.params.id, req.userId],
     );
-
     if (rows.length === 0) {
       res.status(404).json({ message: "Задача не найдена" });
       return;
     }
-
     res.json(rows[0]);
-  }),
-);
+    return;
+  }
+
+  if (completed !== undefined) {
+    if (typeof completed !== "boolean") {
+      res.status(400).json({ message: "completed должен быть boolean" });
+      return;
+    }
+    const { rows } = await pool.query<Todo>(
+      "UPDATE todos SET completed = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
+      [completed, req.params.id, req.userId],
+    );
+    if (rows.length === 0) {
+      res.status(404).json({ message: "Задача не найдена" });
+      return;
+    }
+    res.json(rows[0]);
+    return;
+  }
+
+  res.status(400).json({ message: "нечего обновлять" });
+}));
 
 app.delete(
   "/api/todos/:id",
