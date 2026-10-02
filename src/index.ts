@@ -7,6 +7,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { auth } from "./authMiddleware";
 import cors from "cors";
+import { createToken } from "./lib/jwt";
 
 const app = express();
 app.use(cors());
@@ -44,7 +45,11 @@ app.post(
       [crypto.randomUUID(), email, password_hash, name],
     );
 
-    res.status(201).json(rows[0]);
+    const user = rows[0];
+
+    const token = createToken(user.id);
+
+    res.status(201).json({ user, token });
   }),
 );
 
@@ -73,9 +78,7 @@ app.post(
       return;
     }
 
-    const token = jwt.sign({ id: rows[0].id }, process.env.JWT_SECRET!, {
-      expiresIn: "7d",
-    });
+    const token = createToken(rows[0].id);
 
     res.json({
       user: { id: rows[0].id, email: rows[0].email, name: rows[0].name },
@@ -85,6 +88,18 @@ app.post(
 );
 
 app.use("/api/todos", auth);
+
+app.get("/api/auth/me", auth, asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(
+    "SELECT id, email, name FROM server_users WHERE id = $1",
+    [req.userId]
+  );
+  if (rows.length === 0) {
+    res.status(401).json({ message: "Пользователь не найден" });
+    return;
+  }
+  res.json(rows[0]);
+}));
 
 app.get(
   "/api/todos",
