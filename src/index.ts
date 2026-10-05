@@ -188,22 +188,10 @@ app.patch("/api/todos/:id", asyncHandler(async (req, res) => {
   res.status(400).json({ message: "нечего обновлять" });
 }));
 
-app.delete(
-  "/api/todos/:id",
-  asyncHandler(async (req, res) => {
-    const { rows } = await pool.query<Todo>(
-      "DELETE FROM todos WHERE id = $1 AND user_id = $2 RETURNING *",
-      [req.params.id, req.userId],
-    );
-
-    if (rows.length === 0) {
-      res.status(404).json({ message: "Задача не найдена" });
-      return;
-    }
-
-    res.status(204).end();
-  }),
-);
+app.delete("/api/auth/me", auth, asyncHandler(async (req, res)=>{
+  await pool.query("SELECT delete_server_users($1)", [req.userId]);
+  res.status(204).end();
+}))
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
