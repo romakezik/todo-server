@@ -189,7 +189,7 @@ app.patch("/api/todos/:id", asyncHandler(async (req, res) => {
 }));
 
 app.delete("/api/auth/me", auth, asyncHandler(async (req, res)=>{
-  await pool.query("SELECT delete_server_users($1)", [req.userId]);
+  await pool.query("SELECT delete_server_user($1)", [req.userId]);
   res.status(204).end();
 }))
 
