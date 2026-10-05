@@ -4,7 +4,6 @@ import type { Todo } from "./types";
 import { asyncHandler } from "./asyncHandler";
 import type { Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { auth } from "./authMiddleware";
 import cors from "cors";
 import { createToken } from "./lib/jwt";
@@ -89,17 +88,21 @@ app.post(
 
 app.use("/api/todos", auth);
 
-app.get("/api/auth/me", auth, asyncHandler(async (req, res) => {
-  const { rows } = await pool.query(
-    "SELECT id, email, name FROM server_users WHERE id = $1",
-    [req.userId]
-  );
-  if (rows.length === 0) {
-    res.status(401).json({ message: "Пользователь не найден" });
-    return;
-  }
-  res.json(rows[0]);
-}));
+app.get(
+  "/api/auth/me",
+  auth,
+  asyncHandler(async (req, res) => {
+    const { rows } = await pool.query(
+      "SELECT id, email, name FROM server_users WHERE id = $1",
+      [req.userId],
+    );
+    if (rows.length === 0) {
+      res.status(401).json({ message: "Пользователь не найден" });
+      return;
+    }
+    res.json(rows[0]);
+  }),
+);
 
 app.get(
   "/api/todos",
@@ -148,50 +151,57 @@ app.post(
   }),
 );
 
-app.patch("/api/todos/:id", asyncHandler(async (req, res) => {
-  const { text, completed } = req.body;
+app.patch(
+  "/api/todos/:id",
+  asyncHandler(async (req, res) => {
+    const { text, completed } = req.body;
 
-  if (text !== undefined) {
-    if (typeof text !== "string" || !text.trim()) {
-      res.status(400).json({ message: "text не может быть пустым" });
+    if (text !== undefined) {
+      if (typeof text !== "string" || !text.trim()) {
+        res.status(400).json({ message: "text не может быть пустым" });
+        return;
+      }
+      const { rows } = await pool.query<Todo>(
+        "UPDATE todos SET text = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
+        [text.trim(), req.params.id, req.userId],
+      );
+      if (rows.length === 0) {
+        res.status(404).json({ message: "Задача не найдена" });
+        return;
+      }
+      res.json(rows[0]);
       return;
     }
-    const { rows } = await pool.query<Todo>(
-      "UPDATE todos SET text = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
-      [text.trim(), req.params.id, req.userId],
-    );
-    if (rows.length === 0) {
-      res.status(404).json({ message: "Задача не найдена" });
+
+    if (completed !== undefined) {
+      if (typeof completed !== "boolean") {
+        res.status(400).json({ message: "completed должен быть boolean" });
+        return;
+      }
+      const { rows } = await pool.query<Todo>(
+        "UPDATE todos SET completed = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
+        [completed, req.params.id, req.userId],
+      );
+      if (rows.length === 0) {
+        res.status(404).json({ message: "Задача не найдена" });
+        return;
+      }
+      res.json(rows[0]);
       return;
     }
-    res.json(rows[0]);
-    return;
-  }
 
-  if (completed !== undefined) {
-    if (typeof completed !== "boolean") {
-      res.status(400).json({ message: "completed должен быть boolean" });
-      return;
-    }
-    const { rows } = await pool.query<Todo>(
-      "UPDATE todos SET completed = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
-      [completed, req.params.id, req.userId],
-    );
-    if (rows.length === 0) {
-      res.status(404).json({ message: "Задача не найдена" });
-      return;
-    }
-    res.json(rows[0]);
-    return;
-  }
+    res.status(400).json({ message: "нечего обновлять" });
+  }),
+);
 
-  res.status(400).json({ message: "нечего обновлять" });
-}));
-
-app.delete("/api/auth/me", auth, asyncHandler(async (req, res)=>{
-  await pool.query("SELECT delete_server_user($1)", [req.userId]);
-  res.status(204).end();
-}))
+app.delete(
+  "/api/auth/me",
+  auth,
+  asyncHandler(async (req, res) => {
+    await pool.query("SELECT delete_server_user($1)", [req.userId]);
+    res.status(204).end();
+  }),
+);
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
