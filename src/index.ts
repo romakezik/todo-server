@@ -115,23 +115,6 @@ app.get(
   }),
 );
 
-app.get(
-  "/api/todos/:id",
-  asyncHandler(async (req, res) => {
-    const { rows } = await pool.query<Todo>(
-      "SELECT * FROM todos WHERE id = $1 AND user_id = $2",
-      [req.params.id, req.userId],
-    );
-
-    if (rows.length === 0) {
-      res.status(404).json({ message: "Задача не найдена" });
-      return;
-    }
-
-    res.json(rows[0]);
-  }),
-);
-
 app.post(
   "/api/todos",
   asyncHandler(async (req, res) => {
@@ -191,6 +174,23 @@ app.patch(
     }
 
     res.status(400).json({ message: "нечего обновлять" });
+  }),
+);
+
+app.delete(
+  "/api/todos/:id",
+  asyncHandler(async (req, res) => {
+    const { rows } = await pool.query<Todo>(
+      "DELETE FROM todos WHERE id = $1 AND user_id = $2 RETURNING *",
+      [req.params.id, req.userId],
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ message: "Задача не найдена" });
+      return;
+    }
+
+    res.status(204).end();
   }),
 );
 
