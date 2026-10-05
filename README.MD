@@ -1,7 +1,7 @@
 # todo-server
 
-REST API для [react-todo](https://romakezik-todo.netlify.app) —
-фуллстек: переход от supabase бэкэнда к собственному.
+REST API для [react-todo](https://romakezik-todo.netlify.app).
+Node.js + Express 5 + TypeScript · PostgreSQL · JWT + bcrypt
 
 ## Стек
 Node.js + Express 5 + TypeScript · PostgreSQL · JWT + bcrypt
