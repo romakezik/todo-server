@@ -1,12 +1,11 @@
 import express from "express";
-import { pool } from "./db";
-import type { Todo } from "./types";
 import { asyncHandler } from "./asyncHandler";
 import type { Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
 import { auth } from "./authMiddleware";
 import cors from "cors";
 import { createToken } from "./lib/jwt";
+import { prisma } from "./prisma";
 
 const app = express();
 app.use(cors());
@@ -28,23 +27,30 @@ app.post(
       return;
     }
 
-    const existing = await pool.query(
-      "SELECT id FROM server_users WHERE email = $1",
-      [email],
-    );
-    if (existing.rows.length > 0) {
+    const existing = await prisma.server_users.findUnique({
+      where: { email },
+    });
+
+    if (existing) {
       res.status(409).json({ message: "Почта уже зарегистрирована" });
       return;
     }
 
     const password_hash = await bcrypt.hash(password, 10);
 
-    const { rows } = await pool.query(
-      "INSERT INTO server_users (id, email, password_hash, name) VALUES ($1, $2, $3, $4) RETURNING id, email, name",
-      [crypto.randomUUID(), email, password_hash, name],
-    );
-
-    const user = rows[0];
+    const user = await prisma.server_users.create({
+      data: {
+        id: crypto.randomUUID(),
+        email,
+        name,
+        password_hash,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      },
+    });
 
     const token = createToken(user.id);
 
@@ -62,25 +68,24 @@ app.post(
       return;
     }
 
-    const { rows } = await pool.query(
-      "SELECT * FROM server_users WHERE email = $1",
-      [email],
-    );
-    if (rows.length === 0) {
+    const user = await prisma.server_users.findUnique({
+      where: { email },
+    });
+    if (!user) {
       res.status(401).json({ message: "Неверный email или пароль" });
       return;
     }
 
-    const match = await bcrypt.compare(password, rows[0].password_hash);
+    const match = await bcrypt.compare(password, user.password_hash);
     if (!match) {
       res.status(401).json({ message: "Неверный email или пароль" });
       return;
     }
 
-    const token = createToken(rows[0].id);
+    const token = createToken(user.id);
 
     res.json({
-      user: { id: rows[0].id, email: rows[0].email, name: rows[0].name },
+      user: { id: user.id, email: user.email, name: user.name },
       token,
     });
   }),
@@ -92,26 +97,30 @@ app.get(
   "/api/auth/me",
   auth,
   asyncHandler(async (req, res) => {
-    const { rows } = await pool.query(
-      "SELECT id, email, name FROM server_users WHERE id = $1",
-      [req.userId],
-    );
-    if (rows.length === 0) {
+    const user = await prisma.server_users.findUnique({
+      where: { id: req.userId! },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      },
+    });
+    if (!user) {
       res.status(401).json({ message: "Пользователь не найден" });
       return;
     }
-    res.json(rows[0]);
+    res.json(user);
   }),
 );
 
 app.get(
   "/api/todos",
   asyncHandler(async (req, res) => {
-    const { rows } = await pool.query<Todo>(
-      "SELECT * FROM todos WHERE user_id = $1 ORDER BY created_at DESC",
-      [req.userId],
-    );
-    res.json(rows);
+    const todos = await prisma.todos.findMany({
+      where: { user_id: req.userId! },
+      orderBy: { created_at: "desc" },
+    });
+    res.json(todos);
   }),
 );
 
@@ -125,12 +134,16 @@ app.post(
       return;
     }
 
-    const { rows } = await pool.query<Todo>(
-      "INSERT INTO todos (id, text, completed, user_id) VALUES ($1, $2, $3, $4) RETURNING *",
-      [crypto.randomUUID(), text.trim(), false, req.userId],
-    );
+    const todo = await prisma.todos.create({
+      data: {
+        id: crypto.randomUUID(),
+        text: text.trim(),
+        completed: false,
+        user_id: req.userId!,
+      },
+    });
 
-    res.status(201).json(rows[0]);
+    res.status(201).json(todo);
   }),
 );
 
@@ -144,15 +157,18 @@ app.patch(
         res.status(400).json({ message: "text не может быть пустым" });
         return;
       }
-      const { rows } = await pool.query<Todo>(
-        "UPDATE todos SET text = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
-        [text.trim(), req.params.id, req.userId],
-      );
-      if (rows.length === 0) {
+      const result = await prisma.todos.updateMany({
+        where: { id: req.params.id, user_id: req.userId! },
+        data: { text: text.trim() },
+      });
+      if (result.count === 0) {
         res.status(404).json({ message: "Задача не найдена" });
         return;
       }
-      res.json(rows[0]);
+      const updated = await prisma.todos.findUnique({
+        where: { id: req.params.id },
+      });
+      res.json(updated);
       return;
     }
 
@@ -161,15 +177,18 @@ app.patch(
         res.status(400).json({ message: "completed должен быть boolean" });
         return;
       }
-      const { rows } = await pool.query<Todo>(
-        "UPDATE todos SET completed = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
-        [completed, req.params.id, req.userId],
-      );
-      if (rows.length === 0) {
+      const result = await prisma.todos.updateMany({
+        where: { id: req.params.id, user_id: req.userId! },
+        data: { completed },
+      });
+      if (result.count === 0) {
         res.status(404).json({ message: "Задача не найдена" });
         return;
       }
-      res.json(rows[0]);
+      const updated = await prisma.todos.findUnique({
+        where: { id: req.params.id },
+      });
+      res.json(updated);
       return;
     }
 
@@ -180,12 +199,14 @@ app.patch(
 app.delete(
   "/api/todos/:id",
   asyncHandler(async (req, res) => {
-    const { rows } = await pool.query<Todo>(
-      "DELETE FROM todos WHERE id = $1 AND user_id = $2 RETURNING *",
-      [req.params.id, req.userId],
-    );
+    const result = await prisma.todos.deleteMany({
+      where: {
+        id: req.params.id,
+        user_id: req.userId!,
+      },
+    });
 
-    if (rows.length === 0) {
+    if (result.count === 0) {
       res.status(404).json({ message: "Задача не найдена" });
       return;
     }
@@ -198,7 +219,9 @@ app.delete(
   "/api/auth/me",
   auth,
   asyncHandler(async (req, res) => {
-    await pool.query("SELECT delete_server_user($1)", [req.userId]);
+    await prisma.server_users.delete({
+      where: { id: req.userId! },
+    });
     res.status(204).end();
   }),
 );
