@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "check": "tsc --noEmit && eslint .",
     "format": "prettier --write src",
-    "postinstall": "prisma skills sync || exit 0"
+    "postinstall": "prisma generate"
   },
   "keywords": [],
   "type": "commonjs",
