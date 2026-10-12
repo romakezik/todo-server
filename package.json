@@ -1,24 +1,31 @@
 {
   "name": "todo-server",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "REST API for react-todo — Express 5 + TypeScript + Prisma + JWT",
   "scripts": {
     "start": "node --import tsx src/index.ts",
     "dev": "node --env-file=.env --import tsx --watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "check": "tsc --noEmit && eslint .",
-    "format": "prettier --write src",
+    "format": "prettier --write .",
     "postinstall": "prisma generate"
   },
-  "keywords": [],
+  "keywords": [
+    "express",
+    "typescript",
+    "prisma",
+    "jwt",
+    "postgresql",
+    "rest-api"
+  ],
   "type": "commonjs",
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
+    "dotenv": "^18.0.7",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.0"
@@ -32,7 +39,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.3",
     "@types/pg": "^8.23.1",
-    "dotenv": "^18.0.5",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
     "prettier": "^3.9.9",
